@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formulário com Geolocalização</title>
+    <title>Formulário de Geolocalização - Tropical Transportes</title>
 </head>
 <body>
-    <h1>Formulário com Geolocalização</h1>
+    <h1>Formulário de Geolocalização - Tropical Transportes</h1>
     <form id="locationForm">
         <label for="name">Nome:</label>
         <input type="text" id="name" name="name" required><br><br>
@@ -17,23 +17,28 @@
         <label for="longitude">Longitude:</label>
         <input type="text" id="longitude" name="longitude" readonly><br><br>
 
-        <button type="button" onclick="getLocation()">Obter Localização</button><br><br>
-
-        <input type="submit" value="Enviar">
+        <button type="button" onclick="getLocationAndCopy()">Obter Localização e Copiar</button><br><br>
     </form>
 
     <script>
-        function getLocation() {
+        function getLocationAndCopy() {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(showPosition, showError);
+                navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
             } else {
                 alert("Geolocalização não é suportada por este navegador.");
             }
         }
 
-        function showPosition(position) {
-            document.getElementById('latitude').value = position.coords.latitude;
-            document.getElementById('longitude').value = position.coords.longitude;
+        function showPositionAndCopy(position) {
+            var name = document.getElementById('name').value;
+            var latitude = position.coords.latitude;
+            var longitude = position.coords.longitude;
+
+            var outputText = "Nome: " + name + "\n" +
+                             "Latitude: " + latitude + "\n" +
+                             "Longitude: " + longitude;
+
+            showCopyDialog(outputText);
         }
 
         function showError(error) {
@@ -45,12 +50,22 @@
                     alert("Informações de localização não estão disponíveis.");
                     break;
                 case error.TIMEOUT:
-                    alert("A solicitação para obter a localização foi expirado.");
+                    alert("A solicitação para obter a localização foi expirada.");
                     break;
                 case error.UNKNOWN_ERROR:
                     alert("Ocorreu um erro desconhecido.");
                     break;
             }
+        }
+
+        function showCopyDialog(text) {
+            var copyText = document.createElement('textarea');
+            copyText.value = text;
+            document.body.appendChild(copyText);
+            copyText.select();
+            document.execCommand('copy');
+            document.body.removeChild(copyText);
+            alert("Informações copiadas para a área de transferência:\n\n" + text);
         }
     </script>
 </body>
