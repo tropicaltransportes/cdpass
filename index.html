@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Formulário de Geolocalização - Tropical Transportes</title>
+  <title>Ferramenta de Geolocalização </title>
   <style>
-    /* Define a cor de fundo e fonte padrão */
+    /* Estilos globais */
     body {
       background-color: #1c2a3a;
       color: #fff;
@@ -13,40 +13,45 @@
       padding: 0;
       font-family: Arial, sans-serif;
     }
-
-    /* Centraliza e limita a largura do conteúdo */
     .container {
       max-width: 800px;
       margin: 0 auto;
       padding: 20px;
       text-align: center;
     }
-
-    /* Ajusta o tamanho da imagem para não ocupar muito espaço */
+    /* Estilo da logo */
     .logo {
       max-width: 300px;
       width: 100%;
       height: auto;
       display: block;
-      margin: 0 auto 20px; /* 20px de margem inferior */
+      margin: 0 auto 20px;
     }
-
     /* Título em negrito */
     h1 {
       font-weight: bold;
       margin-bottom: 20px;
     }
-
-    /* Estilo do texto */
-    p {
-      margin-top: 20px;
-      line-height: 1.5;
+    /* Lista de instruções */
+    ul.instructions {
+      list-style: none;
+      padding: 0;
+      text-align: left;
+      margin: 20px auto;
+      max-width: 600px;
+    }
+    ul.instructions li {
+      margin-bottom: 10px;
       font-size: 1.1em;
     }
-
-    /* Botão */
+    ul.instructions li::before {
+      content: "•";
+      margin-right: 10px;
+      color: #00c038;
+    }
+    /* Botão de ação */
     button {
-      background-color: #28a745;
+      background-color: #00c038;
       color: #fff;
       border: none;
       padding: 12px 24px;
@@ -56,75 +61,153 @@
       margin-top: 20px;
       font-weight: bold;
     }
-
-    /* Efeito hover no botão */
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
     button:hover {
-      background-color: #218838;
+      background-color: #00b330;
+    }
+    /* Toast de mensagem */
+    #toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, visibility 0.5s;
+      z-index: 1000;
+    }
+    #toast.show {
+      opacity: 1;
+      visibility: visible;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Ajuste o 'src' conforme o nome do arquivo e local onde ele está no repositório -->
     <img class="logo" src="Prancheta13.png" alt="Logo Tropical Transportes">
-
-    <h1>Formulário de Geolocalização - Tropical Transportes</h1>
-
-    <p>
-      Bem-vindo(a)!<br><br>
-      Estamos felizes em ter você conosco! Para garantir um transporte mais eficiente, precisamos confirmar a geolocalização da sua residência.<br><br>
-      🏠 Antes de continuar, certifique-se de estar em sua residência atual. Isso é importante porque a ferramenta registrará o local exato em que você estiver no momento.<br><br>
-      📍 Agora, clique no botão na tela e autorize o acesso à sua localização.<br><br>
-      Essa informação nos ajudará a encontrar o ponto de embarque mais próximo do seu endereço, proporcionando mais agilidade na definição do seu transporte.<br><br>
-      Se tiver dúvidas, estamos à disposição!
-    </p>
-
-    <button type="button" onclick="getLocationAndCopy()">Obter Localização e Copiar</button>
+    <h1>Ferramenta de Geolocalização</h1>
+    <ul class="instructions">
+      <li>Certifique-se de estar em sua residência.</li>
+      <li>Clique no botão e autorize o acesso à sua localização.</li>
+      <li>Aguarde. Suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
+      <li id="pasteInstruction"></li>
+    </ul>
+    <button id="locationButton" type="button" onclick="getLocationAndCopy()">OBTER E COPIAR LOCALIZAÇÃO</button>
   </div>
-
+  
+  <!-- Toast para exibição de mensagens -->
+  <div id="toast"></div>
+  
   <script>
+    // Atualiza a instrução de colagem de acordo com o dispositivo
+    (function(){
+      var isMobile = /Mobi|Android/i.test(navigator.userAgent);
+      var pasteInstruction = document.getElementById("pasteInstruction");
+      if (pasteInstruction) {
+        if (isMobile) {
+          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, toque no campo de cadastro, segure e selecione 'Colar'.";
+        } else {
+          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
+        }
+      }
+    })();
+    
+    // Função para exibir mensagens toast
+    function showToast(message, duration = 3000) {
+      var toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      setTimeout(function() {
+        toast.classList.remove("show");
+      }, duration);
+    }
+    
+    // Função para obter a localização e copiar para a área de transferência
     function getLocationAndCopy() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
+      var btn = document.getElementById("locationButton");
+      btn.disabled = true;
+      
+      // Usa a Permissions API para verificar o estado da permissão
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+          if (result.state === 'prompt') {
+            // Usuário ainda não foi solicitado: exibe mensagem pedindo permissão
+            showToast("Por favor, permita o acesso à sua localização.", 3000);
+            navigator.geolocation.getCurrentPosition(function(position) {
+              // Após permitir, informa que a localização está sendo obtida
+              showToast("Obtendo localização... Por favor, aguarde.", 3000);
+              // Pequeno delay para que o toast seja visível
+              setTimeout(function() {
+                showPositionAndCopy(position);
+              }, 1000);
+            }, showError);
+          } else if (result.state === 'granted') {
+            // Permissão já concedida: mostra o toast e obtém a localização
+            showToast("Obtendo localização... Por favor, aguarde.");
+            navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
+          } else {
+            // Permissão negada
+            showToast("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.", 4000);
+            btn.disabled = false;
+          }
+        });
       } else {
-        alert("Geolocalização não é suportada por este navegador.");
+        // Caso a Permissions API não esteja disponível, prossegue normalmente
+        showToast("Obtendo localização... Por favor, aguarde.");
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
+        } else {
+          showToast("Geolocalização não é suportada por este navegador.", 4000);
+          btn.disabled = false;
+        }
       }
     }
-
+    
+    // Callback para sucesso na obtenção da localização
     function showPositionAndCopy(position) {
       var latitude = position.coords.latitude;
       var longitude = position.coords.longitude;
-
-      // Formata o resultado como "latitude,longitude"
       var outputText = latitude + ", " + longitude;
-      showCopyDialog(outputText);
-    }
-
-    function showError(error) {
-      switch(error.code) {
-        case error.PERMISSION_DENIED:
-          alert("Usuário negou a solicitação de Geolocalização.");
-          break;
-        case error.POSITION_UNAVAILABLE:
-          alert("Informações de localização não estão disponíveis.");
-          break;
-        case error.TIMEOUT:
-          alert("A solicitação para obter a localização foi expirada.");
-          break;
-        case error.UNKNOWN_ERROR:
-          alert("Ocorreu um erro desconhecido.");
-          break;
-      }
-    }
-
-    function showCopyDialog(text) {
-      var copyText = document.createElement('textarea');
-      copyText.value = text;
+      
+      // Copia o resultado para a área de transferência
+      var copyText = document.createElement("textarea");
+      copyText.value = outputText;
       document.body.appendChild(copyText);
       copyText.select();
-      document.execCommand('copy');
+      document.execCommand("copy");
       document.body.removeChild(copyText);
-      alert("Coordenadas obtidas e copiadas para a área de transferência:\n\n" + text);
+      
+      showToast("Coordenadas obtidas e copiadas: " + outputText, 4000);
+      document.getElementById("locationButton").disabled = false;
+    }
+    
+    // Callback para erros na obtenção da localização
+    function showError(error) {
+      var btn = document.getElementById("locationButton");
+      var errorMsg = "";
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMsg = "Usuário negou a solicitação de Geolocalização.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMsg = "Informações de localização não estão disponíveis.";
+          break;
+        case error.TIMEOUT:
+          errorMsg = "A solicitação para obter a localização foi expirada.";
+          break;
+        case error.UNKNOWN_ERROR:
+          errorMsg = "Ocorreu um erro desconhecido.";
+          break;
+      }
+      showToast(errorMsg, 4000);
+      btn.disabled = false;
     }
   </script>
 </body>
