@@ -143,61 +143,66 @@
       }, duration);
     }
     
-    // Função para obter a localização e copiar para a área de transferência
-    function getLocationAndCopy() {
+    // Função principal para obter localização e copiar coordenadas
+    async function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
 
-      showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
+      try {
+        // Passo 1: Solicitar permissão de localização
+        showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
 
-      navigator.geolocation.getCurrentPosition(
-        async function(position) {
-          const latitude = position.coords.latitude;
-          const longitude = position.coords.longitude;
-          const outputText = `${latitude}, ${longitude}`;
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const outputText = `${latitude}, ${longitude}`;
 
-          try {
-            // Tentativa de usar a Clipboard API
-            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-              await navigator.clipboard.writeText(outputText);
-            } else {
-              // Fallback para execCommand se a Clipboard API não estiver disponível
-              const textarea = document.createElement('textarea');
-              textarea.value = outputText;
-              document.body.appendChild(textarea);
-              textarea.select();
-              document.execCommand('copy');
-              document.body.removeChild(textarea);
-            }
+        // Passo 2: Informar o usuário sobre a próxima etapa
+        showPersistentToast("Localização obtida! Agora, permita a cópia das coordenadas.");
 
-            showPersistentToast(`Coordenadas obtidas e copiadas: ${outputText}`);
-          } catch (error) {
-            showToast("Não foi possível copiar as coordenadas. Verifique as permissões.", 4000);
-          } finally {
-            btn.disabled = false;
-            setTimeout(hideToast, 4000);
+        // Passo 3: Aguardar um breve momento antes de solicitar a cópia
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Passo 4: Tentar copiar as coordenadas
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(outputText);
+          } else {
+            // Fallback para execCommand
+            const textarea = document.createElement('textarea');
+            textarea.value = outputText;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
           }
-        },
-        function(error) {
-          let errorMsg = "";
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMsg = "Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMsg = "Informações de localização não estão disponíveis.";
-              break;
-            case error.TIMEOUT:
-              errorMsg = "A solicitação para obter a localização foi expirada.";
-              break;
-            default:
-              errorMsg = "Ocorreu um erro desconhecido ao obter a localização.";
-              break;
-          }
-          showToast(errorMsg, 4000);
-          btn.disabled = false;
+          showPersistentToast(`Coordenadas obtidas e copiadas: ${outputText}`);
+        } catch (copyError) {
+          showToast("Não foi possível copiar as coordenadas. Verifique as permissões.", 4000);
         }
-      );
+      } catch (error) {
+        let errorMsg = "";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMsg = "Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMsg = "Informações de localização não estão disponíveis.";
+            break;
+          case error.TIMEOUT:
+            errorMsg = "A solicitação para obter a localização foi expirada.";
+            break;
+          default:
+            errorMsg = "Ocorreu um erro desconhecido ao obter a localização.";
+            break;
+        }
+        showToast(errorMsg, 4000);
+      } finally {
+        btn.disabled = false;
+        setTimeout(hideToast, 4000);
+      }
     }
   </script>
 </body>
