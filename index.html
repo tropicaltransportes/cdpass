@@ -175,7 +175,18 @@
       const outputText = `${latitude}, ${longitude}`;
       
       try {
-        await navigator.clipboard.writeText(outputText);
+        // Tentativa de usar a Clipboard API
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(outputText);
+        } else {
+          // Fallback para execCommand se a Clipboard API não estiver disponível
+          const textarea = document.createElement('textarea');
+          textarea.value = outputText;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
         showPersistentToast(`Coordenadas obtidas e copiadas: ${outputText}`);
       } catch (error) {
         showToast("Não foi possível copiar as coordenadas. Verifique as permissões.", 4000);
