@@ -68,6 +68,12 @@
     button:hover {
       background-color: #00b330;
     }
+    /* Área de exibição das coordenadas */
+    .coordinates {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #00c038;
+    }
     /* Toast de mensagem */
     #toast {
       position: fixed;
@@ -95,30 +101,20 @@
     <h1>Ferramenta de Geolocalização</h1>
     <ul class="instructions">
       <li>Certifique-se de estar em sua residência.</li>
-      <li>Clique no botão e autorize o acesso à sua localização.</li>
-      <li>Aguarde. Suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
-      <li id="pasteInstruction"></li>
+      <li>Clique no botão abaixo para autorizar o acesso à sua localização.</li>
+      <li>Após obter as coordenadas, clique no segundo botão para copiá-las.</li>
     </ul>
-    <button id="locationButton" type="button" onclick="getLocationAndCopy()">OBTER E COPIAR LOCALIZAÇÃO</button>
+    <button id="getLocationButton" type="button" onclick="getLocation()">OBTER LOCALIZAÇÃO</button>
+    <div id="coordinatesDisplay" class="coordinates" style="display: none;">
+      Suas coordenadas: <span id="coordinates"></span>
+    </div>
+    <button id="copyButton" type="button" onclick="copyCoordinates()" disabled>COPIAR COORDENADAS</button>
   </div>
   
   <!-- Toast para exibição de mensagens -->
   <div id="toast"></div>
   
   <script>
-    // Atualiza a instrução de colagem de acordo com o dispositivo
-    (function(){
-      var isMobile = /Mobi|Android/i.test(navigator.userAgent);
-      var pasteInstruction = document.getElementById("pasteInstruction");
-      if (pasteInstruction) {
-        if (isMobile) {
-          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, toque no campo de cadastro, segure e selecione 'Colar'.";
-        } else {
-          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
-        }
-      }
-    })();
-    
     // Função para exibir toast persistente (sem auto ocultar)
     function showPersistentToast(message) {
       var toast = document.getElementById("toast");
@@ -141,60 +137,71 @@
         toast.classList.remove("show");
       }, duration);
     }
-    
-    // Função principal para obter localização e copiar coordenadas
-    async function getLocationAndCopy() {
-      var btn = document.getElementById("locationButton");
-      btn.disabled = true;
 
-      try {
-        // Passo 1: Solicitar permissão de localização
-        showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
+    // Variável global para armazenar as coordenadas
+    let coordinates = "";
 
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        const outputText = `${latitude}, ${longitude}`;
+    // Função para obter a localização
+    function getLocation() {
+      const getLocationButton = document.getElementById("getLocationButton");
+      getLocationButton.disabled = true;
 
-        // Passo 2: Copiar as coordenadas usando a Clipboard API
-        try {
-          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-            await navigator.clipboard.writeText(outputText);
-          } else {
-            // Fallback para execCommand
-            const textarea = document.createElement('textarea');
-            textarea.value = outputText;
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
+      showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
+
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          coordinates = `${latitude}, ${longitude}`;
+
+          // Exibir as coordenadas na tela
+          document.getElementById("coordinates").textContent = coordinates;
+          document.getElementById("coordinatesDisplay").style.display = "block";
+
+          // Habilitar o botão de cópia
+          document.getElementById("copyButton").disabled = false;
+
+          showPersistentToast("Localização obtida com sucesso!");
+        },
+        function(error) {
+          let errorMsg = "";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMsg = "Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMsg = "Informações de localização não estão disponíveis.";
+              break;
+            case error.TIMEOUT:
+              errorMsg = "A solicitação para obter a localização foi expirada.";
+              break;
+            default:
+              errorMsg = "Ocorreu um erro desconhecido ao obter a localização.";
+              break;
           }
-          showPersistentToast(`Coordenadas obtidas e copiadas: ${outputText}`);
-        } catch (copyError) {
-          showToast("Não foi possível copiar as coordenadas. Verifique as permissões.", 4000);
+          showToast(errorMsg, 4000);
+          getLocationButton.disabled = false;
         }
+      );
+    }
+
+    // Função para copiar as coordenadas
+    async function copyCoordinates() {
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(coordinates);
+        } else {
+          // Fallback para execCommand
+          const textarea = document.createElement('textarea');
+          textarea.value = coordinates;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+        showPersistentToast("Coordenadas copiadas com sucesso!");
       } catch (error) {
-        let errorMsg = "";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMsg = "Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMsg = "Informações de localização não estão disponíveis.";
-            break;
-          case error.TIMEOUT:
-            errorMsg = "A solicitação para obter a localização foi expirada.";
-            break;
-          default:
-            errorMsg = "Ocorreu um erro desconhecido ao obter a localização.";
-            break;
-        }
-        showToast(errorMsg, 4000);
-      } finally {
-        btn.disabled = false;
-        setTimeout(hideToast, 4000);
+        showToast("Não foi possível copiar as coordenadas. Verifique as permissões.", 4000);
       }
     }
   </script>
