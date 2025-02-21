@@ -96,9 +96,9 @@
     <ul class="instructions">
       <li>Certifique-se de estar em sua residência.</li>
       <li>Clique no botão e autorize o acesso à sua localização.</li>
-      <li>Será solicitada também uma permissão para copiar a coordenada; por favor, permita.</li>
-      <li>Aguarde, pois suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
+      <li>Aguarde. Suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
       <li id="pasteInstruction"></li>
+      <li>Você deverá aceitar a permissão para copiar a coordenada.</li>
     </ul>
     <button id="locationButton" type="button" onclick="getLocationAndCopy()">OBTER E COPIAR LOCALIZAÇÃO</button>
   </div>
@@ -107,33 +107,33 @@
   <div id="toast"></div>
   
   <script>
-    // Atualiza a instrução de colagem conforme o dispositivo
+    // Atualiza a instrução de colagem de acordo com o dispositivo
     (function(){
       var isMobile = /Mobi|Android/i.test(navigator.userAgent);
       var pasteInstruction = document.getElementById("pasteInstruction");
       if (pasteInstruction) {
         if (isMobile) {
-          pasteInstruction.innerHTML = "Após receber a confirmação, toque no campo de cadastro, segure e selecione 'Colar'.";
+          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, toque no campo de cadastro, segure e selecione 'Colar'.";
         } else {
-          pasteInstruction.innerHTML = "Após receber a confirmação, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
+          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
         }
       }
     })();
     
-    // Exibe um toast que permanece até ser ocultado manualmente
+    // Função para exibir toast persistente (sem auto ocultar)
     function showPersistentToast(message) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
       toast.classList.add("show");
     }
     
-    // Oculta o toast
+    // Função para ocultar o toast
     function hideToast() {
       var toast = document.getElementById("toast");
       toast.classList.remove("show");
     }
     
-    // Exibe um toast com auto-ocultação
+    // Função para exibir toast com auto ocultação (usada para mensagens de erro, por exemplo)
     function showToast(message, duration = 3000) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
@@ -143,121 +143,51 @@
       }, duration);
     }
     
-    // Função auxiliar para copiar texto para a área de transferência
-    function copyToClipboard(text) {
-      if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text);
-      } else {
-        return fallbackCopy(text);
-      }
-    }
-    
-    // Fallback utilizando um textarea oculto
-    function fallbackCopy(text) {
-      return new Promise(function(resolve, reject) {
-        var textArea = document.createElement("textarea");
-        textArea.value = text;
-        // Estiliza o textarea para que fique imperceptível
-        textArea.style.position = "fixed";
-        textArea.style.top = "0";
-        textArea.style.left = "0";
-        textArea.style.width = "1px";
-        textArea.style.height = "1px";
-        textArea.style.padding = "0";
-        textArea.style.border = "none";
-        textArea.style.outline = "none";
-        textArea.style.boxShadow = "none";
-        textArea.style.background = "transparent";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-          var successful = document.execCommand('copy');
-          if (successful) {
-            resolve();
-          } else {
-            reject(new Error("Fallback: O comando execCommand falhou"));
-          }
-        } catch (err) {
-          reject(err);
-        }
-        document.body.removeChild(textArea);
-      });
-    }
-    
-    // Função para obter a localização e copiar as coordenadas
-    function getLocationAndCopy() {
+    // Função para obter a localização e copiar para a área de transferência
+    async function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
       
-      if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-          if (result.state === 'prompt') {
-            showPersistentToast("Por favor, permita o acesso à sua localização e à permissão para copiar.");
-            navigator.geolocation.getCurrentPosition(function(position) {
-              showPositionAndCopy(position);
-            }, showError);
-          } else if (result.state === 'granted') {
-            showPersistentToast("Obtendo localização... Por favor, aguarde.");
-            navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
-          } else {
-            showToast("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.", 4000);
-            btn.disabled = false;
-          }
-        });
-      } else {
-        showPersistentToast("Obtendo localização... Por favor, aguarde.");
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
-        } else {
-          showToast("Geolocalização não é suportada por este navegador.", 4000);
-          btn.disabled = false;
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+        if (permissionStatus.state === 'prompt') {
+          showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
+        } else if (permissionStatus.state === 'denied') {
+          throw new Error("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.");
         }
+
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+
+        await showPositionAndCopy(position);
+      } catch (error) {
+        showError(error);
+      } finally {
+        btn.disabled = false;
       }
     }
     
     // Callback para sucesso na obtenção da localização
-    function showPositionAndCopy(position) {
-      var latitude = position.coords.latitude;
-      var longitude = position.coords.longitude;
-      var outputText = latitude + ", " + longitude;
+    async function showPositionAndCopy(position) {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      const outputText = `${latitude}, ${longitude}`;
       
-      copyToClipboard(outputText)
-        .then(function() {
-          var toast = document.getElementById("toast");
-          toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
-          setTimeout(function(){
-              hideToast();
-          }, 4000);
-          document.getElementById("locationButton").disabled = false;
-        })
-        .catch(function(err) {
-          console.error("Erro ao copiar as coordenadas:", err);
-          showToast("Erro ao copiar as coordenadas.", 4000);
-          document.getElementById("locationButton").disabled = false;
-        });
+      try {
+        await navigator.clipboard.writeText(outputText);
+        showPersistentToast(`Coordenadas obtidas e copiadas: ${outputText}`);
+      } catch (error) {
+        showToast("Não foi possível copiar as coordenadas. Verifique as permissões.", 4000);
+      } finally {
+        setTimeout(hideToast, 4000);
+      }
     }
     
     // Callback para erros na obtenção da localização
     function showError(error) {
-      var btn = document.getElementById("locationButton");
-      var errorMsg = "";
-      switch(error.code) {
-        case error.PERMISSION_DENIED:
-          errorMsg = "Usuário negou a solicitação de Geolocalização.";
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMsg = "Informações de localização não estão disponíveis.";
-          break;
-        case error.TIMEOUT:
-          errorMsg = "A solicitação para obter a localização foi expirada.";
-          break;
-        case error.UNKNOWN_ERROR:
-          errorMsg = "Ocorreu um erro desconhecido.";
-          break;
-      }
+      const errorMsg = error.message || "Ocorreu um erro desconhecido.";
       showToast(errorMsg, 4000);
-      btn.disabled = false;
     }
   </script>
 </body>
