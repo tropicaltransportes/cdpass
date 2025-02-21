@@ -96,6 +96,7 @@
     <ul class="instructions">
       <li>Certifique-se de estar em sua residência.</li>
       <li>Clique no botão e autorize o acesso à sua localização.</li>
+      <li>Aparecerá uma janela solicitando permissão para que a coordenada seja copiada. Por favor, aceite essa permissão.</li>
       <li>Aguarde. Suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
       <li id="pasteInstruction"></li>
     </ul>
@@ -143,26 +144,30 @@
     }
     
     // Função para obter a localização e copiar para a área de transferência
-    function getLocationAndCopy() {
+    async function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
       
       if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
-          if (result.state === 'prompt') {
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+          if (permissionStatus.state === 'prompt') {
             showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
             navigator.geolocation.getCurrentPosition(function(position) {
               // Quando a permissão for concedida e a posição obtida, atualiza a mensagem
               showPositionAndCopy(position);
             }, showError);
-          } else if (result.state === 'granted') {
+          } else if (permissionStatus.state === 'granted') {
             showPersistentToast("Obtendo localização... Por favor, aguarde.");
             navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
           } else {
             showToast("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.", 4000);
             btn.disabled = false;
           }
-        });
+        } catch (error) {
+          showToast("Erro ao consultar permissões de geolocalização.", 4000);
+          btn.disabled = false;
+        }
       } else {
         showPersistentToast("Obtendo localização... Por favor, aguarde.");
         if (navigator.geolocation) {
@@ -175,30 +180,24 @@
     }
     
     // Callback para sucesso na obtenção da localização
-    function showPositionAndCopy(position) {
+    async function showPositionAndCopy(position) {
       var latitude = position.coords.latitude;
       var longitude = position.coords.longitude;
       var outputText = latitude + ", " + longitude;
       
-      // Cria um elemento textarea temporário para a operação de cópia
-      var copyText = document.createElement("textarea");
-      copyText.value = outputText;
-      document.body.appendChild(copyText);
-      
-      // Foca no elemento e seleciona o texto
-      copyText.focus();
-      copyText.select();
-      
-      // Executa o comando de cópia
       try {
-        document.execCommand("copy");
-        showToast("Coordenadas copiadas: " + outputText, 4000);
-      } catch (err) {
-        showToast("Falha ao copiar coordenadas.", 4000);
+        // Copia o resultado para a área de transferência usando a API Clipboard
+        await navigator.clipboard.writeText(outputText);
+        
+        // Atualiza o toast persistente com a mensagem de sucesso e, depois, oculta-o
+        var toast = document.getElementById("toast");
+        toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
+        setTimeout(function(){
+            hideToast();
+        }, 4000);
+      } catch (error) {
+        showToast("Erro ao copiar as coordenadas para a área de transferência. Por favor, tente novamente.", 4000);
       }
-      
-      // Remove o elemento textarea temporário
-      document.body.removeChild(copyText);
       
       document.getElementById("locationButton").disabled = false;
     }
