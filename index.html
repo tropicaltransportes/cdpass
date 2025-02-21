@@ -156,9 +156,15 @@
           throw new Error("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.");
         }
 
+        // Verifica se a permissão foi concedida recentemente
         const position = await new Promise((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject);
         });
+
+        // Recarrega a página após a permissão ser concedida
+        if (permissionStatus.state === 'granted') {
+          location.reload();
+        }
 
         await showPositionAndCopy(position);
       } catch (error) {
