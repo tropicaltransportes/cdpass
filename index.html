@@ -142,6 +142,39 @@
       }, duration);
     }
     
+    // Função auxiliar para copiar texto para a área de transferência
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        // Usa a Clipboard API (necessário que a página seja servida via HTTPS)
+        return navigator.clipboard.writeText(text);
+      } else {
+        // Fallback para o método tradicional
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        // Posiciona o textarea de forma que não interfira na visualização
+        textArea.style.position = "fixed";
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.width = "2em";
+        textArea.style.height = "2em";
+        textArea.style.padding = "0";
+        textArea.style.border = "none";
+        textArea.style.outline = "none";
+        textArea.style.boxShadow = "none";
+        textArea.style.background = "transparent";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          console.error('Erro ao copiar via execCommand', err);
+        }
+        document.body.removeChild(textArea);
+        return Promise.resolve();
+      }
+    }
+    
     // Função para obter a localização e copiar para a área de transferência
     function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
@@ -152,7 +185,6 @@
           if (result.state === 'prompt') {
             showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
             navigator.geolocation.getCurrentPosition(function(position) {
-              // Quando a permissão for concedida e a posição obtida, atualiza a mensagem
               showPositionAndCopy(position);
             }, showError);
           } else if (result.state === 'granted') {
@@ -180,21 +212,21 @@
       var longitude = position.coords.longitude;
       var outputText = latitude + ", " + longitude;
       
-      // Copia o resultado para a área de transferência
-      var copyText = document.createElement("textarea");
-      copyText.value = outputText;
-      document.body.appendChild(copyText);
-      copyText.select();
-      document.execCommand("copy");
-      document.body.removeChild(copyText);
-      
-      // Atualiza o toast persistente com a mensagem de sucesso e, depois, oculta-o
-      var toast = document.getElementById("toast");
-      toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
-      setTimeout(function(){
-          hideToast();
-      }, 4000);
-      document.getElementById("locationButton").disabled = false;
+      // Copia as coordenadas para a área de transferência
+      copyToClipboard(outputText)
+        .then(function() {
+          var toast = document.getElementById("toast");
+          toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
+          setTimeout(function(){
+              hideToast();
+          }, 4000);
+          document.getElementById("locationButton").disabled = false;
+        })
+        .catch(function(err) {
+          console.error("Erro ao copiar as coordenadas: ", err);
+          showToast("Erro ao copiar as coordenadas.", 4000);
+          document.getElementById("locationButton").disabled = false;
+        });
     }
     
     // Callback para erros na obtenção da localização
