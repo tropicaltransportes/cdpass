@@ -96,7 +96,8 @@
     <ul class="instructions">
       <li>Certifique-se de estar em sua residência.</li>
       <li>Clique no botão e autorize o acesso à sua localização.</li>
-      <li>Aguarde. Suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
+      <li>Será solicitada também uma permissão para copiar a coordenada; por favor, permita.</li>
+      <li>Aguarde, pois suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
       <li id="pasteInstruction"></li>
     </ul>
     <button id="locationButton" type="button" onclick="getLocationAndCopy()">OBTER E COPIAR LOCALIZAÇÃO</button>
@@ -106,33 +107,33 @@
   <div id="toast"></div>
   
   <script>
-    // Atualiza a instrução de colagem de acordo com o dispositivo
+    // Atualiza a instrução de colagem conforme o dispositivo
     (function(){
       var isMobile = /Mobi|Android/i.test(navigator.userAgent);
       var pasteInstruction = document.getElementById("pasteInstruction");
       if (pasteInstruction) {
         if (isMobile) {
-          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, toque no campo de cadastro, segure e selecione 'Colar'.";
+          pasteInstruction.innerHTML = "Após receber a confirmação, toque no campo de cadastro, segure e selecione 'Colar'.";
         } else {
-          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
+          pasteInstruction.innerHTML = "Após receber a confirmação, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
         }
       }
     })();
     
-    // Função para exibir toast persistente (sem auto ocultar)
+    // Exibe um toast que permanece até ser ocultado manualmente
     function showPersistentToast(message) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
       toast.classList.add("show");
     }
     
-    // Função para ocultar o toast
+    // Oculta o toast
     function hideToast() {
       var toast = document.getElementById("toast");
       toast.classList.remove("show");
     }
     
-    // Função para exibir toast com auto ocultação (usada para mensagens de erro, por exemplo)
+    // Exibe um toast com auto-ocultação
     function showToast(message, duration = 3000) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
@@ -142,27 +143,26 @@
       }, duration);
     }
     
-    // Função auxiliar para copiar texto para a área de transferência com fallback
+    // Função auxiliar para copiar texto para a área de transferência
     function copyToClipboard(text) {
       if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text).catch(function(err) {
-          return fallbackCopy(text);
-        });
+        return navigator.clipboard.writeText(text);
       } else {
         return fallbackCopy(text);
       }
     }
     
+    // Fallback utilizando um textarea oculto
     function fallbackCopy(text) {
       return new Promise(function(resolve, reject) {
         var textArea = document.createElement("textarea");
         textArea.value = text;
-        // Estiliza o textarea para não ser visível
+        // Estiliza o textarea para que fique imperceptível
         textArea.style.position = "fixed";
         textArea.style.top = "0";
         textArea.style.left = "0";
-        textArea.style.width = "2em";
-        textArea.style.height = "2em";
+        textArea.style.width = "1px";
+        textArea.style.height = "1px";
         textArea.style.padding = "0";
         textArea.style.border = "none";
         textArea.style.outline = "none";
@@ -185,7 +185,7 @@
       });
     }
     
-    // Função para obter a localização e copiar para a área de transferência
+    // Função para obter a localização e copiar as coordenadas
     function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
@@ -193,7 +193,7 @@
       if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
           if (result.state === 'prompt') {
-            showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
+            showPersistentToast("Por favor, permita o acesso à sua localização e à permissão para copiar.");
             navigator.geolocation.getCurrentPosition(function(position) {
               showPositionAndCopy(position);
             }, showError);
@@ -232,7 +232,7 @@
           document.getElementById("locationButton").disabled = false;
         })
         .catch(function(err) {
-          console.error("Erro ao copiar as coordenadas: ", err);
+          console.error("Erro ao copiar as coordenadas:", err);
           showToast("Erro ao copiar as coordenadas.", 4000);
           document.getElementById("locationButton").disabled = false;
         });
