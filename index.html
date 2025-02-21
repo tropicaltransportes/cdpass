@@ -96,7 +96,6 @@
     <ul class="instructions">
       <li>Certifique-se de estar em sua residência.</li>
       <li>Clique no botão e autorize o acesso à sua localização.</li>
-      <li>Aparecerá uma janela solicitando permissão para que a coordenada seja copiada. Por favor, aceite essa permissão.</li>
       <li>Aguarde. Suas coordenadas (latitude, longitude) serão copiadas em seguida.</li>
       <li id="pasteInstruction"></li>
     </ul>
@@ -143,31 +142,69 @@
       }, duration);
     }
     
+    // Função auxiliar para copiar texto para a área de transferência com fallback
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text).catch(function(err) {
+          return fallbackCopy(text);
+        });
+      } else {
+        return fallbackCopy(text);
+      }
+    }
+    
+    function fallbackCopy(text) {
+      return new Promise(function(resolve, reject) {
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        // Estiliza o textarea para não ser visível
+        textArea.style.position = "fixed";
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.width = "2em";
+        textArea.style.height = "2em";
+        textArea.style.padding = "0";
+        textArea.style.border = "none";
+        textArea.style.outline = "none";
+        textArea.style.boxShadow = "none";
+        textArea.style.background = "transparent";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          var successful = document.execCommand('copy');
+          if (successful) {
+            resolve();
+          } else {
+            reject(new Error("Fallback: O comando execCommand falhou"));
+          }
+        } catch (err) {
+          reject(err);
+        }
+        document.body.removeChild(textArea);
+      });
+    }
+    
     // Função para obter a localização e copiar para a área de transferência
-    async function getLocationAndCopy() {
+    function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
       
       if (navigator.permissions) {
-        try {
-          const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-          if (permissionStatus.state === 'prompt') {
+        navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
+          if (result.state === 'prompt') {
             showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
             navigator.geolocation.getCurrentPosition(function(position) {
-              // Quando a permissão for concedida e a posição obtida, atualiza a mensagem
               showPositionAndCopy(position);
             }, showError);
-          } else if (permissionStatus.state === 'granted') {
+          } else if (result.state === 'granted') {
             showPersistentToast("Obtendo localização... Por favor, aguarde.");
             navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
           } else {
             showToast("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.", 4000);
             btn.disabled = false;
           }
-        } catch (error) {
-          showToast("Erro ao consultar permissões de geolocalização.", 4000);
-          btn.disabled = false;
-        }
+        });
       } else {
         showPersistentToast("Obtendo localização... Por favor, aguarde.");
         if (navigator.geolocation) {
@@ -180,26 +217,25 @@
     }
     
     // Callback para sucesso na obtenção da localização
-    async function showPositionAndCopy(position) {
+    function showPositionAndCopy(position) {
       var latitude = position.coords.latitude;
       var longitude = position.coords.longitude;
       var outputText = latitude + ", " + longitude;
       
-      try {
-        // Copia o resultado para a área de transferência usando a API Clipboard
-        await navigator.clipboard.writeText(outputText);
-        
-        // Atualiza o toast persistente com a mensagem de sucesso e, depois, oculta-o
-        var toast = document.getElementById("toast");
-        toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
-        setTimeout(function(){
-            hideToast();
-        }, 4000);
-      } catch (error) {
-        showToast("Erro ao copiar as coordenadas para a área de transferência. Por favor, tente novamente.", 4000);
-      }
-      
-      document.getElementById("locationButton").disabled = false;
+      copyToClipboard(outputText)
+        .then(function() {
+          var toast = document.getElementById("toast");
+          toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
+          setTimeout(function(){
+              hideToast();
+          }, 4000);
+          document.getElementById("locationButton").disabled = false;
+        })
+        .catch(function(err) {
+          console.error("Erro ao copiar as coordenadas: ", err);
+          showToast("Erro ao copiar as coordenadas.", 4000);
+          document.getElementById("locationButton").disabled = false;
+        });
     }
     
     // Callback para erros na obtenção da localização
