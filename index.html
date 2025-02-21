@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ferramenta de Geolocalização </title>
+  <title>Ferramenta de Geolocalização</title>
   <style>
     /* Estilos globais */
     body {
@@ -119,7 +119,20 @@
       }
     })();
     
-    // Função para exibir mensagens toast
+    // Função para exibir toast persistente (sem auto ocultar)
+    function showPersistentToast(message) {
+      var toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+    }
+    
+    // Função para ocultar o toast
+    function hideToast() {
+      var toast = document.getElementById("toast");
+      toast.classList.remove("show");
+    }
+    
+    // Função para exibir toast com auto ocultação (usada para mensagens de erro, por exemplo)
     function showToast(message, duration = 3000) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
@@ -134,33 +147,24 @@
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
       
-      // Usa a Permissions API para verificar o estado da permissão
       if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
           if (result.state === 'prompt') {
-            // Usuário ainda não foi solicitado: exibe mensagem pedindo permissão
-            showToast("Por favor, permita o acesso à sua localização.", 3000);
+            showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
             navigator.geolocation.getCurrentPosition(function(position) {
-              // Após permitir, informa que a localização está sendo obtida
-              showToast("Obtendo localização... Por favor, aguarde.", 3000);
-              // Pequeno delay para que o toast seja visível
-              setTimeout(function() {
-                showPositionAndCopy(position);
-              }, 1000);
+              // Quando a permissão for concedida e a posição obtida, atualiza a mensagem
+              showPositionAndCopy(position);
             }, showError);
           } else if (result.state === 'granted') {
-            // Permissão já concedida: mostra o toast e obtém a localização
-            showToast("Obtendo localização... Por favor, aguarde.");
+            showPersistentToast("Obtendo localização... Por favor, aguarde.");
             navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
           } else {
-            // Permissão negada
             showToast("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.", 4000);
             btn.disabled = false;
           }
         });
       } else {
-        // Caso a Permissions API não esteja disponível, prossegue normalmente
-        showToast("Obtendo localização... Por favor, aguarde.");
+        showPersistentToast("Obtendo localização... Por favor, aguarde.");
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
         } else {
@@ -184,7 +188,12 @@
       document.execCommand("copy");
       document.body.removeChild(copyText);
       
-      showToast("Coordenadas obtidas e copiadas: " + outputText, 4000);
+      // Atualiza o toast persistente com a mensagem de sucesso e, depois, oculta-o
+      var toast = document.getElementById("toast");
+      toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
+      setTimeout(function(){
+          hideToast();
+      }, 4000);
       document.getElementById("locationButton").disabled = false;
     }
     
