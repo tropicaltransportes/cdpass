@@ -150,8 +150,9 @@
 
       navigator.geolocation.getCurrentPosition(
         function(position) {
-          const latitude = position.coords.latitude;
-          const longitude = position.coords.longitude;
+          // Limitar as coordenadas a 6 casas decimais
+          const latitude = position.coords.latitude.toFixed(6);
+          const longitude = position.coords.longitude.toFixed(6);
           coordinates = `${latitude}, ${longitude}`;
 
           // Exibir as coordenadas na tela
