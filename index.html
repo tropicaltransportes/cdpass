@@ -102,30 +102,37 @@
     <button id="locationButton" type="button" onclick="getLocationAndCopy()">OBTER E COPIAR LOCALIZAÇÃO</button>
   </div>
   
+  <!-- Toast para exibição de mensagens -->
   <div id="toast"></div>
   
   <script>
-    // Atualiza a instrução de colagem conforme o dispositivo
+    // Atualiza a instrução de colagem de acordo com o dispositivo
     (function(){
       var isMobile = /Mobi|Android/i.test(navigator.userAgent);
       var pasteInstruction = document.getElementById("pasteInstruction");
       if (pasteInstruction) {
-        pasteInstruction.innerHTML = isMobile 
-          ? "Após a confirmação, toque no campo de cadastro, segure e selecione 'Colar'."
-          : "Após a confirmação, clique no campo de cadastro e cole as coordenadas (Ctrl+V ou botão direito -> 'Colar').";
+        if (isMobile) {
+          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, toque no campo de cadastro, segure e selecione 'Colar'.";
+        } else {
+          pasteInstruction.innerHTML = "Após receber a confirmação de que a coordenada foi copiada, clique no campo de cadastro e cole as coordenadas usando Ctrl+V ou clicando com o botão direito e selecionando 'Colar'.";
+        }
       }
     })();
     
+    // Função para exibir toast persistente (sem auto ocultar)
     function showPersistentToast(message) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
       toast.classList.add("show");
     }
     
+    // Função para ocultar o toast
     function hideToast() {
-      document.getElementById("toast").classList.remove("show");
+      var toast = document.getElementById("toast");
+      toast.classList.remove("show");
     }
     
+    // Função para exibir toast com auto ocultação (usada para mensagens de erro, por exemplo)
     function showToast(message, duration = 3000) {
       var toast = document.getElementById("toast");
       toast.textContent = message;
@@ -135,56 +142,24 @@
       }, duration);
     }
     
-    // Função que copia usando document.execCommand('copy')
-    function copyToClipboard(text) {
-      return new Promise(function(resolve, reject) {
-        var textArea = document.createElement("textarea");
-        textArea.value = text;
-        // Estiliza para não interferir na visualização
-        textArea.style.position = "fixed";
-        textArea.style.top = "0";
-        textArea.style.left = "0";
-        textArea.style.width = "2em";
-        textArea.style.height = "2em";
-        textArea.style.padding = "0";
-        textArea.style.border = "none";
-        textArea.style.outline = "none";
-        textArea.style.boxShadow = "none";
-        textArea.style.background = "transparent";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        try {
-          var successful = document.execCommand('copy');
-          if (successful) {
-            resolve();
-          } else {
-            reject(new Error("ExecCommand falhou."));
-          }
-        } catch (err) {
-          reject(err);
-        }
-        document.body.removeChild(textArea);
-      });
-    }
-    
+    // Função para obter a localização e copiar para a área de transferência
     function getLocationAndCopy() {
       var btn = document.getElementById("locationButton");
       btn.disabled = true;
       
-      // Verifica a permissão para geolocalização
       if (navigator.permissions) {
         navigator.permissions.query({ name: 'geolocation' }).then(function(result) {
           if (result.state === 'prompt') {
             showPersistentToast("Por favor, permita o acesso à sua localização e aguarde.");
             navigator.geolocation.getCurrentPosition(function(position) {
+              // Quando a permissão for concedida e a posição obtida, atualiza a mensagem
               showPositionAndCopy(position);
             }, showError);
           } else if (result.state === 'granted') {
             showPersistentToast("Obtendo localização... Por favor, aguarde.");
             navigator.geolocation.getCurrentPosition(showPositionAndCopy, showError);
           } else {
-            showToast("Acesso à localização foi negado. Habilite o acesso em seu navegador.", 4000);
+            showToast("Acesso à localização foi negado. Por favor, habilite o acesso em seu navegador.", 4000);
             btn.disabled = false;
           }
         });
@@ -199,26 +174,36 @@
       }
     }
     
+    // Callback para sucesso na obtenção da localização
     function showPositionAndCopy(position) {
       var latitude = position.coords.latitude;
       var longitude = position.coords.longitude;
       var outputText = latitude + ", " + longitude;
       
-      // Copia usando somente o método execCommand (sem Clipboard API)
-      copyToClipboard(outputText)
-        .then(function() {
-          var toast = document.getElementById("toast");
-          toast.textContent = "Coordenadas obtidas e copiadas: " + outputText;
-          setTimeout(hideToast, 4000);
-          document.getElementById("locationButton").disabled = false;
-        })
-        .catch(function(err) {
-          console.error("Erro ao copiar as coordenadas:", err);
-          showToast("Erro ao copiar as coordenadas.", 4000);
-          document.getElementById("locationButton").disabled = false;
-        });
+      // Cria um elemento textarea temporário para a operação de cópia
+      var copyText = document.createElement("textarea");
+      copyText.value = outputText;
+      document.body.appendChild(copyText);
+      
+      // Foca no elemento e seleciona o texto
+      copyText.focus();
+      copyText.select();
+      
+      // Executa o comando de cópia
+      try {
+        document.execCommand("copy");
+        showToast("Coordenadas copiadas: " + outputText, 4000);
+      } catch (err) {
+        showToast("Falha ao copiar coordenadas.", 4000);
+      }
+      
+      // Remove o elemento textarea temporário
+      document.body.removeChild(copyText);
+      
+      document.getElementById("locationButton").disabled = false;
     }
     
+    // Callback para erros na obtenção da localização
     function showError(error) {
       var btn = document.getElementById("locationButton");
       var errorMsg = "";
